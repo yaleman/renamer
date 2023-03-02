@@ -20,7 +20,7 @@ struct Args {
 }
 
 fn get_files(args: &Args) -> Option<Paths> {
-    let pattern = match args.filepath.ends_with("/") {
+    let pattern = match args.filepath.ends_with('/') {
         true => format!("{}**/*", args.filepath),
         false => format!("{}/**/*", args.filepath),
     };
@@ -32,7 +32,7 @@ fn get_files(args: &Args) -> Option<Paths> {
                 "Failed to parse directory pattern ({}): {error:?}",
                 &pattern
             );
-            return None;
+            None
         }
     }
 }
@@ -46,7 +46,7 @@ fn get_matched_paths(args: &Args, matcher_regex: Regex) -> Vec<PathBuf> {
                 Ok(path) => {
                     let path_string = path.as_os_str();
                     let path_string = path_string.to_str().unwrap();
-                    match matcher_regex.is_match(&path_string) {
+                    match matcher_regex.is_match(path_string) {
                         true => {
                             // let path: String = path_string.into();
                             Some(path)
@@ -68,9 +68,9 @@ fn get_matched_paths(args: &Args, matcher_regex: Regex) -> Vec<PathBuf> {
 
 // builds the regex and tries to clean it up
 fn get_matcher_regex(matcher_string: &str) -> Result<Regex, regex::Error> {
-    let mut matcher_string_temp = matcher_string.clone().to_string();
+    let mut matcher_string_temp = matcher_string.to_string();
 
-    if !matcher_string_temp.ends_with("$") {
+    if !matcher_string_temp.ends_with('$') {
         matcher_string_temp = format!("{matcher_string_temp}$");
     }
     println!("Creating regex on {matcher_string_temp}");
@@ -79,7 +79,7 @@ fn get_matcher_regex(matcher_string: &str) -> Result<Regex, regex::Error> {
 
 // builds the regex and tries to clean it up
 fn get_renamer_regex(renamer_string: &str) -> Result<Regex, String> {
-    let renamer_string_temp = renamer_string.clone().to_string();
+    let renamer_string_temp = renamer_string.to_string();
 
     println!("Creating renamer regex on {renamer_string_temp}");
     let regex = Regex::new(&renamer_string_temp).map_err(|err| format!("{err:?}"))?;
@@ -127,17 +127,20 @@ fn get_change_pairs(
             let result = matcher_regex
                 .replace_all(&path_str, replacement_string)
                 .to_string();
-            (path.clone(), PathBuf::from_str(&format!("{base_path}{result}")).unwrap())
+            (
+                path.clone(),
+                PathBuf::from_str(&format!("{base_path}{result}")).unwrap(),
+            )
         })
         .collect()
 }
 
-fn apply_changes(changes: Vec<(PathBuf, PathBuf)>) -> bool {
+fn apply_changes(changes: Vec<(PathBuf, PathBuf)>) {
     changes.iter().for_each(|(source_file, dest_file)| {
         println!("moving {source_file:?} to {dest_file:?}");
 
         if dest_file.exists() {
-           eprintln!("File already exists! Not taking action! {dest_file:?}");
+            eprintln!("File already exists! Not taking action! {dest_file:?}");
         } else {
             match std::fs::rename(source_file, dest_file) {
                 Ok(()) => println!("Ok"),
@@ -145,8 +148,6 @@ fn apply_changes(changes: Vec<(PathBuf, PathBuf)>) -> bool {
             };
         }
     });
-
-    false
 }
 
 fn main() {
@@ -159,15 +160,13 @@ fn main() {
 
     let mut config = Config::default();
 
-    let base_path = match PathBuf::from_str(&args.filepath)
-        .unwrap()
-        .canonicalize() {
-            Ok(val) => val,
-            Err(err) => {
-                eprintln!("Error finding path: {err:?}");
-                process::exit(1);
-            }
-        };
+    let base_path = match PathBuf::from_str(&args.filepath).unwrap().canonicalize() {
+        Ok(val) => val,
+        Err(err) => {
+            eprintln!("Error finding path: {err:?}");
+            process::exit(1);
+        }
+    };
     let base_path = base_path.to_string_lossy();
 
     let table_format = prettytable::format::FormatBuilder::new()
@@ -202,7 +201,6 @@ fn main() {
                 continue;
             }
         };
-
 
         let matched_paths = get_matched_paths(&args, matcher_regex);
         if matched_paths.is_empty() {
