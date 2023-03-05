@@ -142,7 +142,7 @@ fn apply_changes(changes: Vec<(PathBuf, PathBuf)>) {
         if dest_file.exists() {
             eprintln!("File already exists! Not taking action! {dest_file:?}");
         } else {
-            match std::fs::rename(source_file, dest_file) {
+            match std::fs::rename(source_file, dest_file.canonicalize().unwrap()) {
                 Ok(()) => println!("Ok"),
                 Err(err) => eprintln!("Failed to rename: {err:?}"),
             };
@@ -247,6 +247,7 @@ fn main() {
 
         config.replacement_string = match Input::<String>::new()
             .with_prompt("Enter your replacement string")
+            .allow_empty(true)
             .with_initial_text(config.replacement_string.clone())
             .interact_text()
         {
