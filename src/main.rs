@@ -127,9 +127,11 @@ fn get_change_pairs(
             let result = matcher_regex
                 .replace_all(&path_str, replacement_string)
                 .to_string();
+            let dest = PathBuf::from_str(&format!("{base_path}{result}")).unwrap();
+            println!("result of renamer: {dest:?}");
             (
                 path.clone(),
-                PathBuf::from_str(&format!("{base_path}{result}")).unwrap(),
+                dest,
             )
         })
         .collect()
