@@ -7,8 +7,6 @@ use dialoguer::console::Term;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Input, Select};
 use glob::{glob, Paths};
-use prettytable::format::LineSeparator;
-use prettytable::{row, Table};
 use regex::Regex;
 
 #[derive(Parser, Debug)]
@@ -17,6 +15,16 @@ struct Args {
     /// File path to read
     #[arg()]
     filepath: String,
+    /// File regex to match
+    #[arg(short, long)]
+    regex_matcher: Option<String>,
+    /// Pattern to replace in the filename
+    #[arg(short, long)]
+    pattern: Option<String>,
+
+    /// String to substitute in the filename
+    #[arg(short, long)]
+    substitute: Option<String>,
 }
 
 fn get_files(args: &Args) -> Option<Paths> {
@@ -127,29 +135,36 @@ fn get_change_pairs(
             let result = matcher_regex
                 .replace_all(&path_str, replacement_string)
                 .to_string();
-            let dest = PathBuf::from_str(&format!("{base_path}{}{result}", std::path::MAIN_SEPARATOR)).unwrap();
-            println!("result of renamer: {dest:?}");
-            (
-                path.clone(),
-                dest,
-            )
+
+            let dest = PathBuf::from_str(&format!("{}{}", base_path, result)).unwrap();
+            (path.clone(), dest)
         })
         .collect()
 }
 
 fn apply_changes(changes: Vec<(PathBuf, PathBuf)>) {
-    changes.iter().for_each(|(source_file, dest_file)| {
-        println!("moving {source_file:?} to {dest_file:?}");
+    let mut files_changed = 0;
+    let mut files_skipped = 0;
 
-        if dest_file.exists() {
+    changes.iter().for_each(|(source_file, dest_file)| {
+        if source_file == dest_file {
+            files_skipped += 1;
+        } else if dest_file.exists() {
             eprintln!("File already exists! Not taking action! {dest_file:?}");
+            files_skipped += 1;
         } else {
-            match std::fs::rename(source_file, dest_file.canonicalize().unwrap()) {
-                Ok(()) => println!("Ok"),
+            println!("moving {source_file:?} to {dest_file:?}");
+            match std::fs::rename(source_file, dest_file) {
+                Ok(()) => {
+                    println!("Ok");
+                    files_changed += 1
+                }
                 Err(err) => eprintln!("Failed to rename: {err:?}"),
             };
         }
     });
+    println!("Files changed: {}", files_changed);
+    println!("Files skipped: {}", files_skipped);
 }
 
 fn main() {
@@ -162,6 +177,18 @@ fn main() {
 
     let mut config = Config::default();
 
+    if let Some(ref matcher_string) = args.regex_matcher {
+        config.matcher_string = matcher_string.to_string();
+    }
+
+    if let Some(ref pattern) = args.pattern {
+        config.renamer_string = pattern.to_string();
+    }
+
+    if let Some(ref substitute) = args.substitute {
+        config.replacement_string = substitute.to_string();
+    }
+
     let base_path = match PathBuf::from_str(&args.filepath).unwrap().canonicalize() {
         Ok(val) => val,
         Err(err) => {
@@ -170,16 +197,6 @@ fn main() {
         }
     };
     let base_path = base_path.to_string_lossy();
-
-    let table_format = prettytable::format::FormatBuilder::new()
-        .padding(0, 0)
-        .borders('|')
-        .separator(
-            prettytable::format::LinePosition::Intern,
-            LineSeparator::new('-', '+', '|', '|'),
-        )
-        .column_separator('|')
-        .build();
 
     loop {
         config.matcher_string = match Input::<String>::with_theme(&ColorfulTheme::default())
@@ -260,9 +277,6 @@ fn main() {
             }
         };
 
-        let mut table = Table::new();
-        table.set_format(table_format);
-        table.set_titles(row![ Fyb => "Original", "Replacement"]);
         let changes = get_change_pairs(
             matched_paths,
             base_path.clone().into(),
@@ -271,15 +285,12 @@ fn main() {
         );
 
         changes.iter().for_each(|(path_str, result)| {
-            table.add_row(row![
-                format!("{base_path}{}", path_str.to_str().unwrap()),
-                format!("{base_path}{}", result.to_str().unwrap())
-            ]);
+            println!(
+                "- {}\n+ {}",
+                path_str.to_str().unwrap_or("error"),
+                result.to_str().unwrap_or("error")
+            )
         });
-
-        if let Err(err) = table.print_tty(false) {
-            println!("Failed to output table: {err:?}");
-        };
 
         let mut menu_items = vec!["Change regexes"];
 
