@@ -4,17 +4,35 @@ on: [push]
 jobs:
   cargo_test:
     runs-on: ubuntu-latest
-
+    env:
+      SCCACHE_GHA_ENABLED: true
+      RUSTC_WRAPPER: sccache
+      CARGO_INCREMENTAL: 0
+      CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v4
-      - uses: icepuma/rust-action@master
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.4
         with:
-          args: cargo test
+          version: "v0.4.2"
+      - name: Run cargo test
+        run: cargo test
   cargo_build:
     runs-on: ubuntu-latest
-
+    env:
+      SCCACHE_GHA_ENABLED: true
+      RUSTC_WRAPPER: sccache
+      CARGO_INCREMENTAL: 0
+      CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v4
-      - uses: icepuma/rust-action@master
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.4
         with:
-          args: cargo build
+          version: "v0.4.2"
+      - name: Run cargo build
+        run: cargo build
